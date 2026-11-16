@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Klip Makinesi</title>
+<meta name="author" content="Lesbenjaminsss">
+<meta name="description" content="Videolardan en dikkat çekici anları otomatik bulan ve YouTube Shorts için dikey (9:16) klibe çeviren tarayıcı aracı.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#eceef3;--surface:#fff;--ink:#16181f;--mute:#5d6372;--line:#d3d7e0;--accent:#2b45f5;--accent-ink:#fff;--bar:#dfe3ec;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171a24;--surface:#1f2330;--ink:#eceef6;--mute:#9aa1b5;--line:#33384a;--accent:#7b8dff;--accent-ink:#10121a;--bar:#2c3144;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#171a24;--surface:#1f2330;--ink:#eceef6;--mute:#9aa1b5;--line:#33384a;--accent:#7b8dff;--accent-ink:#10121a;--bar:#2c3144;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+main{max-width:980px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:clamp(34px,7vw,60px);font-weight:800;letter-spacing:-.03em;line-height:1;margin:6px 0 10px}
+.lead{color:var(--mute);max-width:58ch;margin:0 0 26px}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input[type=text],select{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);min-width:0}
+input[type=text]{flex:1 1 260px}
+button{font:inherit;font-weight:600;padding:10px 15px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+button.main{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:18px;text-align:center;color:var(--mute);margin-top:12px}
+.drop.over{border-color:var(--accent);color:var(--ink)}
+.drop label{color:var(--accent);font-weight:600;cursor:pointer;text-decoration:underline}
+#msg{min-height:22px;color:var(--mute);font-size:14px;margin-top:8px}
+#stage{display:none;grid-template-columns:260px 1fr;gap:18px;align-items:start}
+@media(max-width:700px){#stage{grid-template-columns:1fr}.phone{max-width:260px;margin:0 auto}}
+.phone{border:2px solid var(--line);border-radius:22px;padding:6px;background:#000}
+.phone canvas{width:100%;aspect-ratio:9/16;display:block;border-radius:16px;cursor:pointer}
+#vid{position:absolute;width:2px;height:2px;opacity:0;pointer-events:none}
+#heat{width:100%;height:46px;display:block;border-radius:8px;background:var(--bar)}
+.opts{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.opts label{font-weight:600;font-size:14px;display:flex;gap:6px;align-items:center}
+.bar{height:8px;background:var(--bar);border-radius:4px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;width:0;background:var(--accent)}
+.clip{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--line)}
+.clip .t{flex:1 1 170px;font-variant-numeric:tabular-nums}
+.clip small{display:block;color:var(--mute)}
+.empty,.note{color:var(--mute);font-size:14px;margin:8px 0 0}
+.phone{position:relative}
+#ov{position:absolute;left:6px;top:6px;width:calc(100% - 12px);aspect-ratio:9/16;touch-action:none;cursor:move;border-radius:16px}
+#sc{width:100%;display:block;border-radius:8px;margin-top:8px;touch-action:none;cursor:crosshair}
+input[type=color]{width:38px;height:34px;padding:0;border:1px solid var(--line);border-radius:8px;background:none}
+.opts input[type=checkbox]{width:18px;height:18px}
+</style>
+</head>
+<body>
+<main>
+<h1>Klip Makinesi</h1>
+<p class="lead">Videonu yükle. Sesin yükseldiği ve görüntünün hareketlendiği en dikkat çekici anları otomatik bulur, YouTube Shorts için dikey (9:16) klibe çevirir.</p>
+
+<section class="box">
+  <div class="row">
+    <input type="text" id="url" placeholder="Doğrudan video adresi (.mp4, .webm)" aria-label="Video adresi">
+    <button id="load">Yükle</button>
+  </div>
+  <div class="drop" id="drop">Video dosyasını buraya bırak ya da <label for="file">dosya seç</label><input type="file" id="file" accept="video/*" hidden></div>
+  <div id="msg" role="status"></div>
+  <div class="bar" id="pbar" hidden><i id="pfill"></i></div>
+</section>
+
+<section id="stage">
+  <div><div class="phone"><canvas id="cv" width="720" height="1280"></canvas><canvas id="ov" width="360" height="640"></canvas></div><div class="row" style="margin-top:10px"><button id="pp">Oynat / durdur</button></div></div>
+  <div>
+    <div class="box">
+      <strong>Kaynak bölgeleri</strong>
+      <canvas id="sc" width="640" height="360"></canvas>
+      <p class="note">Mavi çerçeve ekran, yeşil çerçeve kamera. Çerçeveyi sürükleyerek taşı, köşelerinden boyutlandır. Videoyu bulmak için oynat düğmesini kullan.</p>
+    </div>
+    <div class="box">
+      <strong>Video analizi</strong>
+      <canvas id="heat" width="1000" height="46"></canvas>
+      <p class="note">Yüksek çubuklar daha hareketli ve gürültülü anlar; vurgulanan bölgeler seçilen kliplerdir.</p>
+      <div class="opts">
+        <button class="main" id="go">En iyi anları bul</button>
+        <label>Süre <select id="len"><option value="15">15 sn</option><option value="30" selected>30 sn</option><option value="45">45 sn</option><option value="59">59 sn</option></select></label>
+        <label>Adet <select id="cnt"><option>3</option><option selected>5</option><option>8</option></select></label>
+      </div>
+      <div class="opts">
+        <label><input type="checkbox" id="cam"> Videoda kamera var</label>
+        <label>Düzen <select id="lay"><option value="top">Kamera üstte</option><option value="bot">Kamera altta</option><option value="float">Kamera köşede</option></select></label>
+        <label>Ekran <select id="smode"><option value="fit">Oranlı sığdır</option><option value="fill">Doldur (kırp)</option></select></label>
+        <label>Kamera şekli <select id="cshape"><option value="rect">Dikdörtgen</option><option value="round">Yuvarlak köşe</option><option value="circle">Daire</option></select></label>
+        <label>Arka plan <select id="bg"><option value="blur">Bulanık</option><option value="solid">Düz renk</option></select><input type="color" id="bgc" value="#111111"></label>
+        <button id="apply">Düzeni sıfırla</button>
+        <span class="note" style="flex-basis:100%;margin:0">Önizlemede ekranı ve kamerayı sürükleyerek istediğin yere koy; sağ alt köşedeki kareden büyüt ya da küçült.</span>
+      </div>
+    </div>
+    <div class="box">
+      <strong>Shorts klipleri</strong>
+      <div id="list"><p class="empty">Önce “En iyi anları bul” düğmesine bas.</p></div>
+    </div>
+  </div>
+</section>
+<p class="note" style="margin-top:28px">Yapan: <a href="https://github.com/Lesbenjaminsss" style="color:var(--accent)">Lesbenjaminsss</a> · MIT Lisansı</p>
+</main>
+<video id="vid" playsinline preload="auto"></video>
+
+<script>
+const $=id=>document.getElementById(id);
+const vid=$('vid'),cv=$('cv'),g=cv.getContext('2d');
+let src='',dur=0,score=[],clips=[],ac,dst,stopIv;
+const W=720,H=1280;
+const fmt=t=>{t=Math.max(0,t||0);return Math.floor(t/60)+':'+(t%60).toFixed(0).padStart(2,'0')};
+const say=t=>$('msg').textContent=t;
+const prog=p=>{$('pbar').hidden=p==null;$('pfill').style.width=(p||0)+'%'};
+
+function loadVideo(s,cors){
+  src=s;vid.removeAttribute('crossorigin');if(cors)vid.crossOrigin='anonymous';
+  vid.src=s;vid.load();clips=[];score=[];renderList();
+  vid.onloadedmetadata=()=>{dur=vid.duration;$('stage').style.display='grid';vid.currentTime=0.1;say('Video hazır ('+fmt(dur)+'). “En iyi anları bul” düğmesine bas.');drawHeat()};
+  vid.onerror=()=>{if(cors&&!s.startsWith('blob:')){say('Adres analiz izni vermiyor; dosya olarak yüklemen gerekebilir.');loadVideo(s,false)}else say('Video açılamadı.')};
+}
+function loadUrl(){
+  const u=$('url').value.trim();if(!u)return;
+  if(/youtu\.?be/.test(u)){say('YouTube videoları tarayıcıdan indirilip analiz edilemez. Videoyu bilgisayarına indirip dosya olarak yükle.');return}
+  loadVideo(u,true);say('Yükleniyor…');
+}
+$('load').onclick=loadUrl;$('url').onkeydown=e=>{if(e.key==='Enter')loadUrl()};
+function useFile(f){if(!f||!f.type.startsWith('video/')){say('Lütfen bir video dosyası seç.');return}loadVideo(URL.createObjectURL(f),false);say(f.name+' yükleniyor…')}
+$('file').onchange=e=>useFile(e.target.files[0]);
+const dz=$('drop');
+['dragover','dragenter'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.add('over')}));
+['dragleave','drop'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.remove('over')}));
+dz.addEventListener('drop',e=>useFile(e.dataTransfer.files[0]));
+
+/* Düzen: ekran + kamera */
+const P={s:{x:0,y:0,w:1,h:1},c:{x:.72,y:.6,w:.26,h:.36}}; /* kaynak bölgeleri (video oranı) */
+const D={s:{x:0,y:0,w:W,h:H},c:{x:0,y:0,w:300,h:300}}; /* hedef (720x1280) */
+let lastVw=0,sel='s',dirty=false,drag=null,sdrag=null;
+const sc=$('sc'),sg=sc.getContext('2d'),ov=$('ov'),og=ov.getContext('2d');
+const rr=(x,y,w,h,r)=>{g.beginPath();if(r>=Math.min(w,h)/2-1)g.ellipse(x+w/2,y+h/2,w/2,h/2,0,0,7);else if(g.roundRect)g.roundRect(x,y,w,h,r);else g.rect(x,y,w,h)};
+function layer(k,d,shape,border){
+  const p=P[k],vw=vid.videoWidth,vh=vid.videoHeight;
+  let sx=p.x*vw,sy=p.y*vh,sw=p.w*vw,sh=p.h*vh;const da=d.w/d.h;
+  if(sw/sh>da){const n=sh*da;sx+=(sw-n)/2;sw=n}else{const n=sw/da;sy+=(sh-n)/2;sh=n}
+  const r=shape==='circle'?9999:shape==='round'?28:0;
+  g.save();rr(d.x,d.y,d.w,d.h,r);g.clip();g.drawImage(vid,sx,sy,sw,sh,d.x,d.y,d.w,d.h);g.restore();
+  if(border){g.save();rr(d.x,d.y,d.w,d.h,r);g.lineWidth=border;g.strokeStyle='#fff';g.stroke();g.restore()}
+}
+function preset(){
+  dirty=false;
+  const vw=vid.videoWidth||16,vh=vid.videoHeight||9,cam=$('cam').checked,fill=$('smode').value==='fill';
+  const sa=P.s.w*vw/(P.s.h*vh),ca=P.c.w*vw/(P.c.h*vh),L=$('lay').value,circ=$('cshape').value==='circle';
+  const fit=b=>{let w=b.w,h=w/sa;if(h>b.h){h=b.h;w=h*sa}return{x:b.x+(b.w-w)/2,y:b.y+(b.h-h)/2,w,h}};
+  const place=b=>fill?b:fit(b);
+  if(!cam){D.s=place({x:0,y:0,w:W,h:H});return}
+  if(L==='float'){const w=W*.42,h=circ?w:w/ca;D.s=place({x:0,y:0,w:W,h:H});D.c={x:W-w-30,y:H-h-130,w,h};return}
+  let cw=W,ch=W/ca;if(ch>H*.38){ch=H*.38;cw=ch*ca}
+  if(circ){cw=ch=Math.min(W*.6,H*.3)}
+  const cx=(W-cw)/2;
+  if(L==='top'){D.c={x:cx,y:0,w:cw,h:ch};D.s=place({x:0,y:ch,w:W,h:H-ch})}
+  else{D.c={x:cx,y:H-ch,w:cw,h:ch};D.s=place({x:0,y:0,w:W,h:H-ch})}
+}
+['cam','lay','smode','cshape'].forEach(i=>$(i).onchange=preset);
+$('apply').onclick=preset;
+$('pp').onclick=()=>{ensureAudio();vid.paused?vid.play():vid.pause()};
+function editors(){
+  sg.drawImage(vid,0,0,sc.width,sc.height);
+  const cam=$('cam').checked;
+  [['s','#4f6bff','Ekran'],['c','#12b886','Kamera']].forEach(([k,col,lb])=>{
+    if(k==='c'&&!cam)return;
+    const r=P[k],x=r.x*sc.width,y=r.y*sc.height,w=r.w*sc.width,h=r.h*sc.height;
+    sg.lineWidth=k===sel?4:2;sg.strokeStyle=col;sg.strokeRect(x,y,w,h);
+    sg.fillStyle=col;sg.font='bold 16px sans-serif';sg.fillText(lb,x+8,y+22);
+    [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(c=>sg.fillRect(c[0]-6,c[1]-6,12,12));
+  });
+  const f=ov.width/W;og.clearRect(0,0,ov.width,ov.height);
+  [['s','#4f6bff'],['c','#12b886']].forEach(([k,col])=>{
+    if(k==='c'&&!cam)return;const d=D[k];
+    og.lineWidth=k===sel?3:1.5;og.strokeStyle=col;og.setLineDash(k===sel?[]:[6,4]);og.strokeRect(d.x*f,d.y*f,d.w*f,d.h*f);
+    og.fillStyle=col;og.fillRect((d.x+d.w)*f-8,(d.y+d.h)*f-8,16,16);
+  });
+}
+function frame(){
+  const vw=vid.videoWidth,vh=vid.videoHeight;
+  if(vw&&vh){
+    if(vw!==lastVw){lastVw=vw;sc.height=Math.round(sc.width*vh/vw);preset()}
+    if($('bg').value==='blur'){
+      g.fillStyle='#000';g.fillRect(0,0,W,H);g.filter='blur(30px)';
+      layer('s',{x:-60,y:-60,w:W+120,h:H+120},'rect',0);g.filter='none';
+      g.fillStyle='rgba(0,0,0,.35)';g.fillRect(0,0,W,H);
+    }else{g.fillStyle=$('bgc').value;g.fillRect(0,0,W,H)}
+    layer('s',D.s,'rect',0);
+    if($('cam').checked)layer('c',D.c,$('cshape').value,6);
+    editors();
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+const pt=(e,c)=>{const r=c.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height}};
+const order=()=>$('cam').checked?['c','s']:['s'];
+ov.onpointerdown=e=>{
+  const p=pt(e,ov),x=p.x*W,y=p.y*H;
+  for(const k of order()){const d=D[k];
+    if(Math.hypot(x-(d.x+d.w),y-(d.y+d.h))<40){sel=k;drag={m:'size',k,w0:d.w,h0:d.h,x0:x};break}
+    if(x>=d.x&&x<=d.x+d.w&&y>=d.y&&y<=d.y+d.h){sel=k;drag={m:'move',k,dx:x-d.x,dy:y-d.y};break}}
+  if(drag){dirty=true;ov.setPointerCapture(e.pointerId)}
+};
+ov.onpointermove=e=>{
+  if(!drag)return;const p=pt(e,ov),x=p.x*W,y=p.y*H,d=D[drag.k];
+  if(drag.m==='move'){d.x=x-drag.dx;d.y=y-drag.dy}
+  else{const s=Math.max(.2,(drag.w0+(x-drag.x0))/drag.w0);d.w=drag.w0*s;d.h=drag.h0*s}
+};
+ov.onpointerup=ov.onpointercancel=()=>drag=null;
+const cl=(v,a,b)=>Math.min(b,Math.max(a,v));
+sc.onpointerdown=e=>{
+  const p=pt(e,sc);
+  for(const k of order()){const r=P[k];
+    const cs=[[r.x,r.y],[r.x+r.w,r.y],[r.x,r.y+r.h],[r.x+r.w,r.y+r.h]];
+    const i=cs.findIndex(c=>Math.hypot((c[0]-p.x)*sc.width,(c[1]-p.y)*sc.height)<16);
+    if(i>=0){sel=k;sdrag={m:'corner',k,ax:cs[3-i][0],ay:cs[3-i][1]};break}
+    if(p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h){sel=k;sdrag={m:'move',k,dx:p.x-r.x,dy:p.y-r.y};break}}
+  if(sdrag)sc.setPointerCapture(e.pointerId);
+};
+sc.onpointermove=e=>{
+  if(!sdrag)return;const p=pt(e,sc),r=P[sdrag.k];
+  if(sdrag.m==='corner'){const x=cl(p.x,0,1),y=cl(p.y,0,1);r.x=Math.min(x,sdrag.ax);r.y=Math.min(y,sdrag.ay);r.w=Math.max(.04,Math.abs(x-sdrag.ax));r.h=Math.max(.04,Math.abs(y-sdrag.ay))}
+  else{r.x=cl(p.x-sdrag.dx,0,1-r.w);r.y=cl(p.y-sdrag.dy,0,1-r.h)}
+};
+sc.onpointerup=sc.onpointercancel=()=>{if(sdrag){sdrag=null;if(!dirty)preset()}};
+
+function ensureAudio(){
+  if(!ac){const A=window.AudioContext||window.webkitAudioContext;ac=new A();dst=ac.createMediaStreamDestination();const s=ac.createMediaElementSource(vid);s.connect(ac.destination);s.connect(dst)}
+  if(ac.state==='suspended')ac.resume();
+}
+const seek=t=>new Promise(r=>{vid.addEventListener('seeked',r,{once:true});vid.currentTime=t});
+
+/* Analiz: ses seviyesi + hareket */
+async function analyze(){
+  const n=Math.ceil(dur);let audio=new Array(n).fill(0),motion=new Array(n).fill(0);
+  ensureAudio();
+  try{
+    say('Ses analiz ediliyor…');prog(5);
+    const buf=await ac.decodeAudioData(await (await fetch(src)).arrayBuffer());
+    const d=buf.getChannelData(0),sr=buf.sampleRate;
+    for(let i=0;i<n;i++){let a=i*sr,b=Math.min(d.length,a+sr),s=0,c=0;for(let j=a;j<b;j+=8){s+=d[j]*d[j];c++}audio[i]=c?Math.sqrt(s/c):0}
+  }catch(e){say('Ses okunamadı, yalnızca görüntü hareketine bakılıyor.')}
+  try{
+    const c=document.createElement('canvas');c.width=32;c.height=18;const x=c.getContext('2d',{willReadFrequently:true});
+    const step=Math.max(1,dur/240);let prev=null;
+    vid.pause();
+    for(let t=0;t<dur;t+=step){
+      await seek(t);x.drawImage(vid,0,0,32,18);
+      const px=x.getImageData(0,0,32,18).data;let diff=0;
+      if(prev){for(let k=0;k<px.length;k+=4)diff+=Math.abs(px[k]-prev[k])+Math.abs(px[k+1]-prev[k+1])+Math.abs(px[k+2]-prev[k+2])}
+      prev=px;
+      for(let s=Math.floor(t);s<Math.min(n,Math.floor(t+step));s++)motion[s]=diff;
+      prog(10+t/dur*90);
+    }
+  }catch(e){say('Görüntü analizi yapılamadı (tarayıcı izni).')}
+  const norm=a=>{const s=[...a].sort((p,q)=>p-q),m=s[Math.floor(s.length*.95)]||1;return a.map(v=>Math.min(1,v/(m||1)))};
+  const A=norm(audio),M=norm(motion);
+  let raw=A.map((v,i)=>0.55*v+0.45*M[i]);
+  score=raw.map((_,i)=>{let s=0,c=0;for(let j=i-2;j<=i+2;j++)if(raw[j]!=null){s+=raw[j];c++}return s/c});
+  prog(null);await seek(0.1);
+}
+function pick(){
+  const L=Math.min(+$('len').value,Math.floor(dur)),N=+$('cnt').value,n=score.length;
+  if(n<=L){clips=[{s:0,e:dur,p:100}];return}
+  const pre=[0];score.forEach(v=>pre.push(pre[pre.length-1]+v));
+  const used=new Array(n).fill(false);clips=[];
+  for(let k=0;k<N;k++){
+    let best=-1,bi=-1;
+    for(let i=0;i+L<=n;i++){
+      let bad=false;for(let j=i;j<i+L;j+=Math.max(1,Math.floor(L/6)))if(used[j]){bad=true;break}
+      if(bad)continue;const m=(pre[i+L]-pre[i])/L;if(m>best){best=m;bi=i}
+    }
+    if(bi<0)break;
+    for(let j=Math.max(0,bi-L/2|0);j<Math.min(n,bi+L+L/2|0);j++)used[j]=true;
+    clips.push({s:bi,e:Math.min(dur,bi+L),p:Math.round(best*100)});
+  }
+  clips.sort((a,b)=>b.p-a.p);clips.forEach((c,i)=>c.n=i+1);
+}
+$('go').onclick=async()=>{
+  $('go').disabled=true;
+  if(!score.length)await analyze();
+  pick();renderList();drawHeat();say(clips.length+' klip bulundu. Önizlemek için “Oynat”, kaydetmek için “Shorts indir”.');
+  $('go').disabled=false;
+};
+$('len').onchange=$('cnt').onchange=()=>{if(score.length){pick();renderList();drawHeat()}};
+
+function drawHeat(){
+  const h=$('heat'),x=h.getContext('2d'),w=h.width,hh=h.height;x.clearRect(0,0,w,hh);
+  const css=getComputedStyle(document.documentElement),acc=css.getPropertyValue('--accent').trim(),mute=css.getPropertyValue('--mute').trim();
+  if(!score.length)return;
+  clips.forEach(c=>{x.globalAlpha=.25;x.fillStyle=acc;x.fillRect(c.s/dur*w,0,(c.e-c.s)/dur*w,hh)});
+  x.globalAlpha=1;x.fillStyle=mute;
+  score.forEach((v,i)=>{const bw=w/score.length;x.fillRect(i*bw,hh-v*hh,Math.max(1,bw-.5),v*hh)});
+  x.fillStyle=acc;clips.forEach(c=>{score.forEach((v,i)=>{if(i>=c.s&&i<c.e){const bw=w/score.length;x.fillRect(i*bw,hh-v*hh,Math.max(1,bw-.5),v*hh)}})});
+}
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',drawHeat);
+
+function renderList(){
+  const L=$('list');
+  if(!clips.length){L.innerHTML='<p class="empty">Önce “En iyi anları bul” düğmesine bas.</p>';return}
+  L.innerHTML='';
+  clips.forEach(c=>{
+    const d=document.createElement('div');d.className='clip';
+    d.innerHTML='<div class="t"><b>Klip '+c.n+'</b><small>'+fmt(c.s)+' – '+fmt(c.e)+' · '+Math.round(c.e-c.s)+' sn · puan '+c.p+'</small></div>';
+    const pv=document.createElement('button');pv.textContent='Oynat';pv.onclick=()=>preview(c);
+    const dl=document.createElement('button');dl.className='main';dl.textContent='Shorts indir';dl.onclick=()=>exportShort(c,dl);
+    d.append(pv,dl);L.appendChild(d);
+  });
+}
+async function preview(c){
+  ensureAudio();clearInterval(stopIv);await seek(c.s);vid.play();
+  stopIv=setInterval(()=>{if(vid.currentTime>=c.e||vid.ended){vid.pause();clearInterval(stopIv)}},80);
+}
+
+async function exportShort(c,btn){
+  if(!cv.captureStream||!window.MediaRecorder){say('Bu tarayıcı kayıt desteklemiyor. Chrome, Edge ya da Firefox dene.');return}
+  const old=btn.textContent;btn.disabled=true;clearInterval(stopIv);
+  try{
+    ensureAudio();vid.pause();await seek(c.s);
+    const st=cv.captureStream(30);dst.stream.getAudioTracks().forEach(t=>st.addTrack(t));
+    const mime=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'].find(m=>MediaRecorder.isTypeSupported(m));
+    const rec=new MediaRecorder(st,{...(mime?{mimeType:mime}:{}),videoBitsPerSecond:6e6});
+    const ch=[];rec.ondataavailable=e=>e.data.size&&ch.push(e.data);
+    const done=new Promise(r=>rec.onstop=r);
+    rec.start(500);await vid.play();
+    await new Promise(res=>{const iv=setInterval(()=>{
+      btn.textContent='Kaydediliyor %'+Math.min(100,Math.round((vid.currentTime-c.s)/(c.e-c.s)*100));
+      if(vid.currentTime>=c.e||vid.ended||vid.paused){clearInterval(iv);res()}},120)});
+    vid.pause();rec.stop();await done;
+    const blob=new Blob(ch,{type:rec.mimeType||'video/webm'});
+    if(blob.size<2000)throw 0;
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='short-'+c.n+(blob.type.includes('mp4')?'.mp4':'.webm');a.click();
+    say('Short '+c.n+' indirildi (720×1280). Kayıt gerçek zamanlı yapılır.');
+  }catch(e){say('Kaydedilemedi. Video başka bir siteden geliyorsa tarayıcı izin vermez; dosya olarak yükle.')}
+  btn.disabled=false;btn.textContent=old;
+}
+</script>
+</body>
+</html>
